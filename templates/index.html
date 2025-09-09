@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}Submit PTO Request - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-calendar-plus me-2"></i>Submit PTO Request
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_request') }}" id="ptoForm">
+                    <!-- Employee Information -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2">Employee Information</h5>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="team" class="form-label">Team <span class="text-danger">*</span></label>
+                            <select class="form-select" id="team" name="team" required>
+                                <option value="">Select Team</option>
+                                <option value="clinical">Clinical Team</option>
+                                <option value="admin">Administrative Team</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="position" class="form-label">Position <span class="text-danger">*</span></label>
+                            <select class="form-select" id="position" name="position" required>
+                                <option value="">Select Position</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                            <select class="form-select" id="name" name="name" required>
+                                <option value="">Select Team Member</option>
+                                <option value="NOT_LISTED" data-custom="true">🔍 I'm not listed - Register as new employee</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" readonly>
+                        </div>
+                    </div>
+
+
+                    <!-- PTO Request Details -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2">Request Details</h5>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="start_date" class="form-label">Start Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="end_date" class="form-label">End Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="pto_type" class="form-label">PTO Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="pto_type" name="pto_type" required>
+                                <option value="">Select Type</option>
+                                <option value="Vacation">Vacation</option>
+                                <option value="Sick Leave">Sick Leave</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Family Emergency">Family Emergency</option>
+                                <option value="Bereavement">Bereavement</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Partial Day Option -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_partial_day" name="is_partial_day">
+                                <label class="form-check-label" for="is_partial_day">
+                                    This is a partial day request
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time Inputs (shown only for partial days) -->
+                    <div class="row mb-4" id="time_inputs" style="display: none;">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_time" class="form-label">Start Time</label>
+                            <input type="time" class="form-control" id="start_time" name="start_time">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_time" class="form-label">End Time</label>
+                            <input type="time" class="form-control" id="end_time" name="end_time">
+                        </div>
+                    </div>
+
+                    <!-- Reason/Notes -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label for="reason" class="form-label">Reason/Notes</label>
+                            <textarea class="form-control" id="reason" name="reason" rows="3" 
+                                      placeholder="Optional: Provide any additional details about your request"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="row">
+                        <div class="col-12 text-center">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-paper-plane me-2"></i>Submit PTO Request
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Information Card -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle me-2"></i>Important Information
+                </h5>
+                <ul class="mb-0">
+                    <li>PTO requests must be submitted at least 48 hours in advance for approval</li>
+                    <li>Emergency requests will be reviewed on a case-by-case basis</li>
+                    <li>You will receive email notifications about your request status</li>
+                    <li>Approved PTO will be automatically deducted from your balance</li>
+                    <li>Contact your supervisor for urgent requests or questions</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Employee Registration Modal -->
+<div class="modal fade" id="newEmployeeModal" tabindex="-1" aria-labelledby="newEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newEmployeeModalLabel">
+                    <i class="fas fa-user-plus me-2"></i>New Employee Registration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('submit_request') }}" id="newEmployeeForm" onsubmit="return handleNewEmployeeSubmission(event)">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <p class="mb-0">Please provide your information below. Your profile will be submitted for manager approval before you can submit PTO requests.</p>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="new_employee_name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="new_employee_name" name="new_employee_name" 
+                                   placeholder="Enter your full name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="new_employee_email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="new_employee_email" name="new_employee_email" 
+                                   placeholder="Enter your work email address" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="new_employee_team" class="form-label">Team <span class="text-danger">*</span></label>
+                            <select class="form-select" id="new_employee_team" name="new_employee_team" required>
+                                <option value="">Select Team</option>
+                                <option value="clinical">Clinical Team</option>
+                                <option value="admin">Administrative Team</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="new_employee_position" class="form-label">Position <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="new_employee_position" name="new_employee_position" 
+                                   placeholder="Enter your position/job title" required>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label for="employee_notes" class="form-label">Additional Notes (Optional)</label>
+                            <textarea class="form-control" id="employee_notes" name="employee_notes" rows="3" 
+                                      placeholder="Any additional information for your manager (start date, department, etc.)"></textarea>
+                        </div>
+                    </div>
+                    <!-- Hidden fields to indicate this is a new employee registration -->
+                    <input type="hidden" name="name" value="NOT_LISTED">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-user-plus me-2"></i>Submit Registration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nameSelect = document.getElementById('name');
+    const emailField = document.getElementById('email');
+    
+    // Handle name selection change
+    nameSelect.addEventListener('change', function() {
+        if (this.value === 'NOT_LISTED') {
+            // Show the modal instead of inline form
+            const modal = new bootstrap.Modal(document.getElementById('newEmployeeModal'));
+            modal.show();
+            
+            // Reset the name select to blank when modal is closed
+            document.getElementById('newEmployeeModal').addEventListener('hidden.bs.modal', function() {
+                nameSelect.value = '';
+            });
+        }
+    });
+    
+});
+
+// Handle new employee form submission
+async function handleNewEmployeeSubmission(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            // Close the modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newEmployeeModal'));
+            modal.hide();
+            
+            // Clear the form
+            form.reset();
+            
+            // Show success message
+            showNotification('Employee registration submitted successfully! You will be notified once approved.', 'success');
+            
+            // Refresh the staff directory in the background for when the employee gets approved
+            // Note: This won't immediately show the new employee since they need approval first
+            if (typeof window.refreshStaffDirectory === 'function') {
+                await window.refreshStaffDirectory();
+            }
+            
+        } else {
+            showNotification('Error submitting registration. Please try again.', 'error');
+        }
+    } catch (error) {
+        console.error('Error submitting form:', error);
+        showNotification('Error submitting registration. Please try again.', 'error');
+    }
+    
+    return false;
+}
+
+// Utility function to show notifications
+function showNotification(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at the top of the page
+    const container = document.querySelector('.container-fluid') || document.body;
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv && alertDiv.parentElement) {
+            alertDiv.style.opacity = '0';
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.parentElement.removeChild(alertDiv);
+                }
+            }, 300);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

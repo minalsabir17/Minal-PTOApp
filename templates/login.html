@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Manager Login - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card fade-in">
+            <div class="card-header text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-shield me-2"></i>Manager Login
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('login') }}">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Development Credentials Card -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-key me-2"></i>Development Login Credentials
+                </h6>
+                <div class="small">
+                    <strong>Admin Manager:</strong><br>
+                    Email: admin.manager@mswcvi.com<br>
+                    Password: admin123<br><br>
+                    
+                    <strong>Clinical Manager:</strong><br>
+                    Email: clinical.manager@mswcvi.com<br>
+                    Password: clinical123<br><br>
+                    
+                    <strong>Super Admin:</strong><br>
+                    Email: superadmin@mswcvi.com<br>
+                    Password: super123
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

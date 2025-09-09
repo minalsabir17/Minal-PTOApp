@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Super Admin Dashboard - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-crown me-2"></i>Super Admin Dashboard
+            <small class="text-muted">- Welcome {{ session.user_name }}</small>
+        </h2>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-bolt me-2"></i>Quick Actions
+                </h6>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('pending_employees') }}" class="btn btn-warning">
+                        <i class="fas fa-user-clock me-2"></i>Pending Employee Registrations
+                    </a>
+                    <a href="{{ url_for('employees') }}" class="btn btn-primary">
+                        <i class="fas fa-users me-2"></i>Manage All Employees
+                    </a>
+                    <a href="{{ url_for('add_employee') }}" class="btn btn-success">
+                        <i class="fas fa-user-plus me-2"></i>Add Employee
+                    </a>
+                    <a href="{{ url_for('calendar') }}" class="btn btn-info">
+                        <i class="fas fa-calendar me-2"></i>View Calendar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-number">{{ requests|selectattr("status", "equalto", "pending")|list|length }}</div>
+            <div class="stats-label">Pending Requests</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-number">{{ requests|selectattr("status", "equalto", "approved")|list|length }}</div>
+            <div class="stats-label">Approved Requests</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-number">{{ requests|length }}</div>
+            <div class="stats-label">Total Requests</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-number">{{ team_members|length if team_members else 0 }}</div>
+            <div class="stats-label">Team Members</div>
+        </div>
+    </div>
+</div>
+
+<!-- All Requests Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>All PTO Requests (System-wide)
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Employee</th>
+                        <th>Team</th>
+                        <th>Position</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Type</th>
+                        <th>Duration</th>
+                        <th>Submitted</th>
+                        <th>Status</th>
+                        <th>Manager Team</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for request in requests %}
+                    <tr>
+                        <td>#{{ request.id }}</td>
+                        <td>{{ request.member.name if request.member else 'Unknown' }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'primary' if request.member.team == 'clinical' else 'secondary' }}">
+                                {{ request.member.team|title if request.member else 'N/A' }}
+                            </span>
+                        </td>
+                        <td>{{ request.member.position if request.member else 'N/A' }}</td>
+                        <td>{{ request.start_date }}</td>
+                        <td>{{ request.end_date }}</td>
+                        <td>
+                            {% if request.is_partial_day %}
+                                <span class="badge bg-info">Partial Day</span><br>
+                            {% endif %}
+                            {{ request.pto_type }}
+                        </td>
+                        <td>
+                            {% if request.is_partial_day %}
+                                {{ "%.1f"|format(request.duration_hours) }} hrs
+                            {% else %}
+                                {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
+                            <br><small class="text-muted">{{ request.submitted_at.strftime('%I:%M %p') if request.submitted_at else '' }}</small>
+                        </td>
+                        <td>
+                            <span class="badge status-{{ request.status }}">
+                                {{ request.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark">{{ request.manager_team|title }}</span>
+                        </td>
+                        <td>
+                            {% if request.status == 'pending' %}
+                                <a href="{{ url_for('approve_request', request_id=request.id) }}" 
+                                   class="btn btn-success btn-sm btn-approve me-1"
+                                   data-bs-toggle="tooltip" title="Approve Request">
+                                    <i class="fas fa-check"></i>
+                                </a>
+                                <form method="POST" action="{{ url_for('deny_request', request_id=request.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm btn-deny"
+                                            data-bs-toggle="tooltip" title="Deny Request">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <small class="text-muted">No actions</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No PTO requests found</h5>
+            <p class="text-muted">All system requests will appear here when submitted.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

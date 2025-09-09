@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Employee Registrations - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-user-clock me-2"></i>Pending Employee Registrations
+            <small class="text-muted">- {{ session.user_role|title }} View</small>
+        </h2>
+    </div>
+</div>
+
+<!-- Summary Card -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-hourglass-half fa-2x text-warning mb-2"></i>
+                <h4 class="card-title">{{ total_pending }}</h4>
+                <p class="card-text">Pending Registrations</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-info-circle me-2"></i>Employee Registration Process
+                </h6>
+                <p class="mb-0">
+                    When new employees submit their registration through the PTO request form, 
+                    their profiles appear here for your approval. Once approved, they will be 
+                    added to the employee directory and can submit PTO requests.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Registrations Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>Pending Employee Registrations
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if pending_employees %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Employee Information</th>
+                        <th>Team & Position</th>
+                        <th>Submitted</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in pending_employees %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-2">
+                                    {{ employee.name[0:2].upper() }}
+                                </div>
+                                <div>
+                                    <strong>{{ employee.name }}</strong>
+                                    <br><small class="text-muted">{{ employee.email }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'primary' if employee.team == 'clinical' else 'secondary' }} mb-1">
+                                {{ employee.team|title }}
+                            </span>
+                            <br><small>{{ employee.position }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ employee.submitted_at.strftime('%m/%d/%Y') }}</strong>
+                            <br><small class="text-muted">{{ employee.submitted_at.strftime('%I:%M %p') }}</small>
+                        </td>
+                        <td>
+                            {% if employee.denial_reason and employee.denial_reason.startswith('Registration Notes:') %}
+                                <span data-bs-toggle="tooltip" title="{{ employee.denial_reason[19:] }}">
+                                    {{ employee.denial_reason[19:50] }}{% if employee.denial_reason[19:]|length > 50 %}...{% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">No additional notes</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('approve_employee', employee_id=employee.id) }}" 
+                                   class="btn btn-sm btn-success"
+                                   onclick="return confirm('Are you sure you want to approve this employee registration?')"
+                                   data-bs-toggle="tooltip" title="Approve Registration">
+                                    <i class="fas fa-check"></i> Approve
+                                </a>
+                                
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="showDenyModal({{ employee.id }}, '{{ employee.name }}')"
+                                        data-bs-toggle="tooltip" title="Request More Information">
+                                    <i class="fas fa-question-circle"></i> More Info
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-users-clock fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No Pending Registrations</h5>
+            <p class="text-muted">
+                All employee registrations have been processed, or no new registrations have been submitted.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{{ url_for('employees') }}" class="btn btn-secondary">
+            <i class="fas fa-users me-2"></i>View All Employees
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+            <i class="fas fa-tachometer-alt me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Denial/Request More Info Modal -->
+<div class="modal fade" id="denyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request Additional Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="denyForm">
+                <div class="modal-body">
+                    <p>Request additional information from <strong id="denyEmployeeName"></strong>:</p>
+                    <div class="mb-3">
+                        <label for="denial_reason" class="form-label">Message to Employee</label>
+                        <textarea class="form-control" id="denial_reason" name="denial_reason" rows="4" 
+                                  placeholder="Please provide your start date, department details, or any other missing information..." required></textarea>
+                        <div class="form-text">
+                            This message will be sent to the employee asking them to contact you with additional information.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-paper-plane me-1"></i>Send Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background-color: var(--sinai-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.table th {
+    background-color: var(--sinai-primary);
+    color: white;
+}
+
+.btn-group .btn {
+    margin-right: 0;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function showDenyModal(employeeId, employeeName) {
+    document.getElementById('denyEmployeeName').textContent = employeeName;
+    document.getElementById('denyForm').action = `/deny_employee/${employeeId}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('denyModal'));
+    modal.show();
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

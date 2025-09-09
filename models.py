@@ -1,0 +1,250 @@
+from database import db
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean, Numeric, Date
+from sqlalchemy.orm import relationship
+
+class User(db.Model):
+    """Base user class"""
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(120), unique=True, nullable=False)
+    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours
+    pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def __init__(self, name=None, email=None, **kwargs):
+        super().__init__(**kwargs)
+        if name:
+            self.name = name
+        if email:
+            self.email = email
+    
+    @property
+    def pto_balance_days(self):
+        """Convert hours to days (7.5 hours = 1 day)"""
+        return round(float(self.pto_balance_hours) / 7.5, 1)
+    
+    def get_remaining_pto_hours(self):
+        """Calculate remaining PTO hours - balance is now deducted immediately upon approval"""
+        # PTO balance is now deducted immediately upon approval, so just return current balance
+        # Note: Balance already reflects deducted hours from approved/in-progress requests
+        return max(0, float(self.pto_balance_hours))
+    
+    def get_remaining_pto_days(self):
+        """Calculate remaining PTO in days"""
+        return round(self.get_remaining_pto_hours() / 7.5, 1)
+    
+    def refresh_pto_balance(self, new_balance_hours=60.0):
+        """Reset PTO balance to new amount (usually done annually)"""
+        from database import db
+        self.pto_balance_hours = new_balance_hours
+        db.session.commit()
+    
+    def __repr__(self):
+        return f'<User {self.name}>'
+
+class TeamMember(User):
+    """Team member inherits from User"""
+    __tablename__ = 'team_members'
+    
+    id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    team = Column(String(20), nullable=False)  # 'admin' or 'clinical'
+    position = Column(String(50), nullable=False)
+    
+    def __init__(self, name=None, email=None, team=None, position=None, **kwargs):
+        super().__init__(name=name, email=email, **kwargs)
+        if team:
+            self.team = team
+        if position:
+            self.position = position
+    
+    # Relationship to PTO requests
+    pto_requests = relationship("PTORequest", back_populates="member")
+    
+    @property
+    def manager_team(self):
+        """Determine which manager should handle this team member's requests"""
+        clinical_positions = ['MOA', 'Echo Tech', 'Vascular Tech', 'Nurse', 'APP']
+        admin_positions = ['Front Desk', '4th Floor', 'CT Desk']
+        
+        if self.position in clinical_positions:
+            return 'clinical'
+        elif self.position in admin_positions:
+            return 'admin'
+        else:
+            return self.team  # fallback to team
+    
+    def __repr__(self):
+        return f'<TeamMember {self.name} - {self.team}>'
+
+class Manager(User):
+    """Manager class for approving requests"""
+    __tablename__ = 'managers'
+    
+    id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    role = Column(String(30), nullable=False)  # 'admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor'
+    password_hash = Column(String(256))  # For authentication
+    
+    def __init__(self, name=None, email=None, role=None, password_hash=None, **kwargs):
+        super().__init__(name=name, email=email, **kwargs)
+        if role:
+            self.role = role
+        if password_hash:
+            self.password_hash = password_hash
+    
+    # Legacy compatibility - keep 'team' as property for existing code
+    @property
+    def team(self):
+        return self.role
+    
+    def can_approve_position(self, position):
+        """Check if this manager can approve requests for a specific position"""
+        if self.role == 'superadmin':
+            return True
+        elif self.role == 'admin':
+            admin_positions = ['Front Desk/Admin', 'CT Desk', 'Echo Desk (4th Floor)', 'Authorization Team']
+            return position in admin_positions
+        elif self.role == 'clinical':
+            clinical_positions = ['APP', 'CVI RNs', 'Cardiac CT RNs', '4th Floor Echo RNs', 'CVI MOAs', 'CVI Echo Techs', '4th Floor Echo Techs', 'EKG Tech (4th Floor)', 'Cardiac CT Techs (4th Floor)', 'Nuclear Tech (CVI)', 'Vascular Tech (CVI)']
+            return position in clinical_positions
+        elif self.role == 'moa_supervisor':
+            moa_positions = ['CVI MOAs']
+            return position in moa_positions
+        elif self.role == 'echo_supervisor':
+            echo_positions = ['CVI Echo Techs', '4th Floor Echo Techs']
+            return position in echo_positions
+        return False
+    
+    def __repr__(self):
+        return f'<Manager {self.name} - {self.role}>'
+
+class PTORequest(db.Model):
+    """PTO Request model"""
+    __tablename__ = 'pto_requests'
+    
+    id = Column(Integer, primary_key=True)
+    member_id = Column(Integer, ForeignKey('team_members.id'), nullable=False)
+    start_date = Column(String(10), nullable=False)  # YYYY-MM-DD format
+    end_date = Column(String(10), nullable=False)
+    pto_type = Column(String(50), nullable=False)  # vacation, sick, etc.
+    status = Column(String(20), default='pending')  # pending, approved, in_progress, denied, completed
+    manager_team = Column(String(20), nullable=False)  # which manager should handle this
+    denial_reason = Column(Text)
+    
+    # Partial PTO support
+    is_partial_day = Column(Boolean, default=False)  # True for partial day requests
+    start_time = Column(String(8))  # HH:MM format for partial days
+    end_time = Column(String(8))  # HH:MM format for partial days
+    reason = Column(Text)  # Optional reason (especially for partial days)
+    
+    # Workflow tracking
+    timekeeping_complete = Column(String(3), default='No')  # Yes/No
+    coverage_arranged = Column(String(3), default='No')  # Yes/No
+    workflow_complete = Column(String(3), default='No')  # Yes/No
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    submitted_at = Column(DateTime, default=datetime.utcnow)  # For tracking submission time
+    
+    def __init__(self, member=None, start_date=None, end_date=None, pto_type=None, 
+                 manager_team=None, status='pending', coverage_arranged='No', 
+                 timekeeping_complete='No', workflow_complete='No', is_partial_day=False,
+                 start_time=None, end_time=None, reason=None, **kwargs):
+        super().__init__(**kwargs)
+        if member:
+            self.member = member
+        if start_date:
+            self.start_date = start_date
+        if end_date:
+            self.end_date = end_date
+        if pto_type:
+            self.pto_type = pto_type
+        if manager_team:
+            self.manager_team = manager_team
+        self.status = status
+        self.coverage_arranged = coverage_arranged
+        self.timekeeping_complete = timekeeping_complete
+        self.workflow_complete = workflow_complete
+        self.is_partial_day = is_partial_day
+        self.start_time = start_time
+        self.end_time = end_time
+        self.reason = reason
+    
+    # Relationships
+    member = relationship("TeamMember", back_populates="pto_requests")
+    
+    @property
+    def duration_days(self):
+        """Calculate duration in days"""
+        try:
+            # Access the actual column values, not the Column objects
+            start_date_value = getattr(self, '_start_date', self.start_date) if hasattr(self.start_date, '__get__') else self.start_date
+            end_date_value = getattr(self, '_end_date', self.end_date) if hasattr(self.end_date, '__get__') else self.end_date
+            
+            if isinstance(start_date_value, str) and isinstance(end_date_value, str):
+                start = datetime.strptime(start_date_value, '%Y-%m-%d')
+                end = datetime.strptime(end_date_value, '%Y-%m-%d')
+                return (end - start).days + 1
+            return 1
+        except:
+            return 1
+    
+    @property
+    def duration_hours(self):
+        """Calculate duration in hours (7.5 hours = 1 full day)"""
+        try:
+            if self.is_partial_day and self.start_time and self.end_time:
+                # Calculate partial day hours
+                start_hour, start_min = map(int, self.start_time.split(':'))
+                end_hour, end_min = map(int, self.end_time.split(':'))
+                
+                start_minutes = start_hour * 60 + start_min
+                end_minutes = end_hour * 60 + end_min
+                
+                total_minutes = end_minutes - start_minutes
+                return round(total_minutes / 60, 2)
+            else:
+                # Full day calculation: 7.5 hours per day
+                return self.duration_days * 7.5
+        except:
+            return 7.5
+    
+    def __repr__(self):
+        return f'<PTORequest {self.id} - {self.member.name if self.member else "Unknown"} - {self.status}>'
+
+class PendingEmployee(db.Model):
+    """Model for employees pending manager approval"""
+    __tablename__ = 'pending_employees'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(120), nullable=False)
+    team = Column(String(20), nullable=False)  # 'admin' or 'clinical'
+    position = Column(String(50), nullable=False)
+    status = Column(String(20), default='pending')  # pending, approved, denied
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+    approved_at = Column(DateTime)
+    approved_by_id = Column(Integer, ForeignKey('managers.id'))
+    denial_reason = Column(Text)
+    
+    # Initial PTO balance requested (default 60 hours)
+    requested_pto_balance = Column(Numeric(5,2), default=60.0)
+    
+    def __init__(self, name=None, email=None, team=None, position=None, **kwargs):
+        super().__init__(**kwargs)
+        if name:
+            self.name = name
+        if email:
+            self.email = email
+        if team:
+            self.team = team
+        if position:
+            self.position = position
+    
+    # Relationship to approving manager
+    approved_by = relationship("Manager", foreign_keys=[approved_by_id])
+    
+    def __repr__(self):
+        return f'<PendingEmployee {self.name} - {self.status}>'

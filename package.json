@@ -1,0 +1,19 @@
+{
+  "name": "msw-cvi-pto-tracker-tests",
+  "version": "1.0.0",
+  "description": "Frontend tests for MSW CVI PTO Tracker",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "show-report": "playwright show-report"
+  },
+  "keywords": ["playwright", "testing", "pto", "flask"],
+  "author": "MSW CVI IT Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Employee - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-user-edit me-2"></i>Edit Employee
+        </h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('employees') }}">Employees</a></li>
+                <li class="breadcrumb-item active">Edit {{ employee.name.replace('[INACTIVE] ', '') }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-edit me-2"></i>Employee Information
+                </h5>
+                <div>
+                    {% if '[INACTIVE]' in employee.name %}
+                        <span class="badge bg-secondary">Inactive Employee</span>
+                    {% else %}
+                        <span class="badge bg-success">Active Employee</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">
+                                <i class="fas fa-user me-1"></i>Full Name <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   value="{{ employee.name.replace('[INACTIVE] ', '') }}"
+                                   placeholder="Enter full name">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>Email Address <span class="text-danger">*</span>
+                            </label>
+                            <input type="email" class="form-control" id="email" name="email" required
+                                   value="{{ employee.email.replace('inactive_' + employee.id|string + '@', '') }}"
+                                   placeholder="employee@mountsinai.org">
+                            {% if '[INACTIVE]' in employee.name %}
+                                <div class="form-text text-warning">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    This is an inactive employee. Email changes may not take effect immediately.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="team" class="form-label">
+                                <i class="fas fa-users me-1"></i>Team <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="team" name="team" required>
+                                <option value="">Select Team</option>
+                                <option value="clinical" {{ 'selected' if employee.team == 'clinical' else '' }}>Clinical</option>
+                                <option value="admin" {{ 'selected' if employee.team == 'admin' else '' }}>Admin</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="position" class="form-label">
+                                <i class="fas fa-briefcase me-1"></i>Position <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="position" name="position" required>
+                                <option value="">Select Position</option>
+                                <!-- Clinical positions -->
+                                <optgroup label="Clinical Team">
+                                    <option value="APP" {{ 'selected' if employee.position == 'APP' else '' }}>Advanced Practice Provider (APP)</option>
+                                    <option value="CVI RNs" {{ 'selected' if employee.position == 'CVI RNs' else '' }}>CVI Registered Nurse</option>
+                                    <option value="CVI MOAs" {{ 'selected' if employee.position == 'CVI MOAs' else '' }}>CVI Medical Office Assistant</option>
+                                    <option value="CVI Echo Techs" {{ 'selected' if employee.position == 'CVI Echo Techs' else '' }}>CVI Echo Technician</option>
+                                </optgroup>
+                                <!-- Admin positions -->
+                                <optgroup label="Administrative Team">
+                                    <option value="Front Desk/Admin" {{ 'selected' if employee.position == 'Front Desk/Admin' else '' }}>Front Desk/Admin</option>
+                                    <option value="CT Desk" {{ 'selected' if employee.position == 'CT Desk' else '' }}>CT Desk</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="pto_balance" class="form-label">
+                                <i class="fas fa-calendar-day me-1"></i>PTO Balance (Hours)
+                            </label>
+                            <input type="number" class="form-control" id="pto_balance" name="pto_balance" 
+                                   value="{{ employee.pto_balance_hours }}" min="0" max="240" step="0.5"
+                                   placeholder="60.0">
+                            <div class="form-text">
+                                7.5 hours = 1 workday. Current: {{ "%.1f"|format(employee.pto_balance_days) }} days
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-info-circle me-1"></i>PTO Balance (Days)
+                            </label>
+                            <div class="form-control-plaintext" id="pto_days_display">
+                                {{ "%.1f"|format(employee.pto_balance_days) }} days
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="pto_refresh_date" class="form-label">
+                                <i class="fas fa-sync-alt me-1"></i>PTO Balance Refresh Date
+                            </label>
+                            <input type="date" class="form-control" id="pto_refresh_date" name="pto_refresh_date" 
+                                   value="{{ employee.pto_refresh_date.strftime('%Y-%m-%d') if employee.pto_refresh_date else '' }}">
+                            <div class="form-text">
+                                Annual date when PTO balance is reset/refreshed
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-calendar-alt me-1"></i>Next Refresh
+                            </label>
+                            <div class="form-control-plaintext">
+                                {% if employee.pto_refresh_date %}
+                                    <span class="text-info">{{ employee.pto_refresh_date.strftime('%B %d, %Y') }}</span>
+                                {% else %}
+                                    <span class="text-muted">Not set</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employee Statistics (Read-only) -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-chart-bar me-2"></i>Employee Statistics
+                            </h6>
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="stat-item">
+                                        <div class="stat-number text-primary">{{ employee.id }}</div>
+                                        <div class="stat-label">Employee ID</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-item">
+                                        <div class="stat-number text-info">{{ employee.pto_requests|length if employee.pto_requests else 0 }}</div>
+                                        <div class="stat-label">Total Requests</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-item">
+                                        <div class="stat-number text-success">
+                                            {{ employee.pto_requests|selectattr("status", "equalto", "approved")|list|length if employee.pto_requests else 0 }}
+                                        </div>
+                                        <div class="stat-label">Approved</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-item">
+                                        <div class="stat-number text-warning">
+                                            {{ employee.pto_requests|selectattr("status", "equalto", "pending")|list|length if employee.pto_requests else 0 }}
+                                        </div>
+                                        <div class="stat-label">Pending</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if '[INACTIVE]' in employee.name %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Inactive Employee:</strong> This employee is marked as inactive but retained for historical records. 
+                            Changes will be saved but may have limited effect on system operations.
+                        </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('employees') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Cancel
+                        </a>
+                        <div>
+                            <button type="button" class="btn btn-info me-2" onclick="viewEmployeePTO({{ employee.id }}, '{{ employee.name.replace('[INACTIVE] ', '') }}')">
+                                <i class="fas fa-calendar-check me-2"></i>View PTO History
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PTO History Modal (reused from employees.html) -->
+<div class="modal fade" id="ptoHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">PTO History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="ptoHistoryContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.stat-item {
+    padding: 10px;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Update PTO days display when hours change
+document.getElementById('pto_balance').addEventListener('input', function() {
+    const hours = parseFloat(this.value) || 0;
+    const days = (hours / 7.5).toFixed(1);
+    document.getElementById('pto_days_display').textContent = `${days} days`;
+});
+
+// Position filtering based on team selection
+document.getElementById('team').addEventListener('change', function() {
+    const positionSelect = document.getElementById('position');
+    const clinicalOptions = positionSelect.querySelectorAll('optgroup[label="Clinical Team"] option');
+    const adminOptions = positionSelect.querySelectorAll('optgroup[label="Administrative Team"] option');
+    
+    // Show/hide options based on team
+    if (this.value === 'clinical') {
+        clinicalOptions.forEach(option => option.style.display = 'block');
+        adminOptions.forEach(option => option.style.display = 'none');
+    } else if (this.value === 'admin') {
+        clinicalOptions.forEach(option => option.style.display = 'none');
+        adminOptions.forEach(option => option.style.display = 'block');
+    } else {
+        clinicalOptions.forEach(option => option.style.display = 'block');
+        adminOptions.forEach(option => option.style.display = 'block');
+    }
+});
+
+// PTO History modal function (reused from employees.html)
+function viewEmployeePTO(employeeId, employeeName) {
+    const modal = new bootstrap.Modal(document.getElementById('ptoHistoryModal'));
+    document.querySelector('#ptoHistoryModal .modal-title').textContent = `PTO History - ${employeeName}`;
+    
+    // Show loading spinner
+    document.getElementById('ptoHistoryContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading PTO history...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Simulate loading PTO history
+    setTimeout(() => {
+        document.getElementById('ptoHistoryContent').innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                PTO history feature would display all past and current requests for this employee.
+                This is a placeholder for demonstration.
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date Range</th>
+                            <th>Type</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">
+                                Would show actual PTO history here
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }, 1000);
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Trigger team change to set initial position visibility
+    document.getElementById('team').dispatchEvent(new Event('change'));
+});
+</script>
+{% endblock %}

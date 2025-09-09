@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Employees - MSW CVI PTO Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-users me-2"></i>Manage Employees
+            <small class="text-muted">- {{ session.user_role|title }} View</small>
+        </h2>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h4 class="card-title">{{ stats.total_employees }}</h4>
+                <p class="card-text">Total Employees</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-user-check fa-2x text-success mb-2"></i>
+                <h4 class="card-title">{{ stats.active_employees }}</h4>
+                <p class="card-text">Active Employees</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x text-info mb-2"></i>
+                <h4 class="card-title">{{ stats.total_pto_days }}</h4>
+                <p class="card-text">Total PTO Days</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-day fa-2x text-warning mb-2"></i>
+                <h4 class="card-title">{{ stats.avg_pto_days }}</h4>
+                <p class="card-text">Avg PTO Days</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+        <a href="{{ url_for('add_employee') }}" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>Add New Employee
+        </a>
+        {% endif %}
+        <button class="btn btn-info" onclick="exportEmployees()">
+            <i class="fas fa-download me-2"></i>Export List
+        </button>
+    </div>
+</div>
+
+<!-- Employees Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>Employee Directory
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if team_members %}
+        <div class="table-responsive">
+            <table class="table table-hover" id="employeesTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Team</th>
+                        <th>Position</th>
+                        <th>PTO Balance</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in team_members %}
+                    <tr class="{% if '[INACTIVE]' in employee.name %}table-secondary{% endif %}">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-2">
+                                    {{ employee.name[0:2].upper() }}
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('employee_detail', employee_id=employee.id) }}" class="text-decoration-none">
+                                        <strong>{{ employee.name.replace('[INACTIVE] ', '') }}</strong>
+                                    </a>
+                                    {% if '[INACTIVE]' in employee.name %}
+                                        <br><small class="text-muted">Inactive</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ employee.email }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'primary' if employee.team == 'clinical' else 'secondary' }}">
+                                {{ employee.team|title }}
+                            </span>
+                        </td>
+                        <td>{{ employee.position }}</td>
+                        <td>
+                            <div>
+                                <strong>{{ "%.1f"|format(employee.pto_balance_days) }} days</strong>
+                                <br><small class="text-muted">{{ employee.pto_balance_hours }} hours</small>
+                            </div>
+                        </td>
+                        <td>
+                            {% if '[INACTIVE]' in employee.name %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% else %}
+                                <span class="badge bg-success">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('edit_employee', employee_id=employee.id) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   data-bs-toggle="tooltip" title="Edit Employee">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                
+                                <!-- View Employee Details -->
+                                <a href="{{ url_for('employee_detail', employee_id=employee.id) }}" 
+                                   class="btn btn-sm btn-outline-info"
+                                   data-bs-toggle="tooltip" title="View Employee Details">
+                                    <i class="fas fa-user-circle"></i>
+                                </a>
+                                
+                                {% if session.user_role in ['admin', 'clinical', 'superadmin'] and '[INACTIVE]' not in employee.name %}
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="confirmDelete({{ employee.id }}, '{{ employee.name }}')"
+                                        data-bs-toggle="tooltip" title="Delete Employee">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No employees found</h5>
+            <p class="text-muted">
+                {% if session.user_role in ['admin', 'clinical', 'superadmin'] %}
+                    Click "Add New Employee" to get started.
+                {% else %}
+                    No employees are assigned to your supervision area.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteEmployeeName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    If this employee has PTO history, they will be marked as inactive instead of deleted.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" id="deleteForm" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Employee</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background-color: var(--sinai-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+#employeesTable th {
+    background-color: var(--sinai-primary);
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+
+function confirmDelete(employeeId, employeeName) {
+    document.getElementById('deleteEmployeeName').textContent = employeeName;
+    document.getElementById('deleteForm').action = `/employee/delete/${employeeId}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+function exportEmployees() {
+    // Simple CSV export
+    const table = document.getElementById('employeesTable');
+    let csv = 'Name,Email,Team,Position,PTO Balance (Hours),Status\n';
+    
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const name = cells[0].textContent.trim().replace(/\n.*/g, '');
+        const email = cells[1].textContent.trim();
+        const team = cells[2].textContent.trim();
+        const position = cells[3].textContent.trim();
+        const ptoBalance = cells[4].textContent.trim().split('\n')[1];
+        const status = cells[5].textContent.trim();
+        
+        csv += `"${name}","${email}","${team}","${position}","${ptoBalance}","${status}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'employees.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

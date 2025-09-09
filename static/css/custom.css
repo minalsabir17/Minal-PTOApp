@@ -1,0 +1,266 @@
+/* Custom CSS for PTO Tracker - Mount Sinai Theme */
+
+/* Mount Sinai Color Variables */
+:root {
+    --sinai-primary: #005DAA;
+    --sinai-secondary: #00A0DB;
+    --sinai-light-blue: #B7D9F7;
+    --sinai-gray: #333333;
+    --sinai-light-gray: #F7F7F7;
+    --sinai-accent: #EF3340;
+    --sinai-white: #FFFFFF;
+    --sinai-border: #E0E0E0;
+    --sinai-success: #28a745;
+    --sinai-warning: #ffc107;
+}
+
+/* Global styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--sinai-light-gray);
+    color: var(--sinai-gray);
+}
+
+/* Navigation styles */
+.sinai-nav {
+    background-color: var(--sinai-primary) !important;
+    border-bottom: 3px solid var(--sinai-secondary);
+}
+
+.sinai-nav .navbar-brand {
+    color: var(--sinai-white) !important;
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.sinai-nav .navbar-brand:hover {
+    color: var(--sinai-light-blue) !important;
+}
+
+.sinai-nav .nav-link {
+    color: var(--sinai-white) !important;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.sinai-nav .nav-link:hover {
+    color: var(--sinai-light-blue) !important;
+}
+
+.sinai-nav .dropdown-menu {
+    background-color: var(--sinai-white);
+    border: 1px solid var(--sinai-border);
+    box-shadow: 0 4px 6px rgba(0, 93, 170, 0.1);
+}
+
+.sinai-nav .dropdown-item {
+    color: var(--sinai-gray);
+    padding: 10px 20px;
+    transition: background-color 0.3s ease;
+}
+
+.sinai-nav .dropdown-item:hover {
+    background-color: var(--sinai-light-blue);
+    color: var(--sinai-primary);
+}
+
+/* Footer styles */
+.sinai-footer {
+    background-color: var(--sinai-gray) !important;
+    margin-top: auto;
+}
+
+/* Card styles */
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background-color: var(--sinai-white);
+}
+
+.card-header {
+    background-color: var(--sinai-primary);
+    color: var(--sinai-white);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0 !important;
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+}
+
+/* Button styles */
+.btn-primary {
+    background-color: var(--sinai-primary);
+    border-color: var(--sinai-primary);
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--sinai-secondary);
+    border-color: var(--sinai-secondary);
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background-color: var(--sinai-success);
+    border-color: var(--sinai-success);
+}
+
+.btn-danger {
+    background-color: var(--sinai-accent);
+    border-color: var(--sinai-accent);
+}
+
+/* Status badges */
+.status-pending {
+    background-color: var(--sinai-warning);
+    color: #000;
+}
+
+.status-approved {
+    background-color: var(--sinai-success);
+    color: var(--sinai-white);
+}
+
+.status-denied {
+    background-color: var(--sinai-accent);
+    color: var(--sinai-white);
+}
+
+.status-in-progress {
+    background-color: var(--sinai-secondary);
+    color: var(--sinai-white);
+}
+
+.status-completed {
+    background-color: var(--sinai-gray);
+    color: var(--sinai-white);
+}
+
+/* Form styles */
+.form-control, .form-select {
+    border: 2px solid var(--sinai-border);
+    border-radius: 5px;
+    padding: 0.75rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--sinai-primary);
+    box-shadow: 0 0 0 0.2rem rgba(0, 93, 170, 0.25);
+}
+
+/* Table styles */
+.table {
+    background-color: var(--sinai-white);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.table thead th {
+    background-color: var(--sinai-primary);
+    color: var(--sinai-white);
+    border: none;
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--sinai-border);
+}
+
+.table tbody tr:hover {
+    background-color: rgba(183, 217, 247, 0.1);
+}
+
+/* Alert styles */
+.alert {
+    border: none;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-weight: 500;
+}
+
+.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--sinai-success);
+    border-left: 4px solid var(--sinai-success);
+}
+
+.alert-danger {
+    background-color: rgba(239, 51, 64, 0.1);
+    color: var(--sinai-accent);
+    border-left: 4px solid var(--sinai-accent);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .table-responsive {
+        border-radius: 10px;
+    }
+}
+
+/* Loading and animation effects */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Calendar specific styles */
+.calendar-day {
+    min-height: 100px;
+    border: 1px solid var(--sinai-border);
+    padding: 0.5rem;
+}
+
+.calendar-event {
+    background-color: var(--sinai-primary);
+    color: var(--sinai-white);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+/* Dashboard specific styles */
+.dashboard-card {
+    transition: transform 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+
+.stats-card {
+    background: linear-gradient(135deg, var(--sinai-primary), var(--sinai-secondary));
+    color: var(--sinai-white);
+    text-align: center;
+    padding: 2rem;
+    border-radius: 10px;
+}
+
+.stats-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stats-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
