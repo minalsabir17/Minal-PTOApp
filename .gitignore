@@ -43,4 +43,4 @@ clinical_cookies.txt
 
 # Environment variables
 .env
-.env.local
+.env.localgemini-cli/
