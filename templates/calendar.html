@@ -65,6 +65,10 @@
                         <div class="legend-color bg-warning me-2"></div>
                         <span>Pending</span>
                     </div>
+                    <div class="d-flex align-items-center">
+                        <div class="legend-color bg-danger me-2"></div>
+                        <span>Call Out</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -190,6 +194,12 @@
     color: #000;
 }
 
+.status-callout {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+
 
 .upcoming-event {
     border-left: 4px solid;
@@ -203,6 +213,10 @@
 
 .upcoming-event.pending {
     border-left-color: #ffc107;
+}
+
+.upcoming-event.callout {
+    border-left-color: #dc3545;
 }
 
 </style>
@@ -246,17 +260,28 @@ document.addEventListener('DOMContentLoaded', function() {
         dayMaxEvents: 3, // Show "more" link when too many events
         
         eventDidMount: function(info) {
-            // Add custom styling based on status
+            // Add custom styling based on call-out or status
+            const isCallOut = info.event.extendedProps.is_call_out;
             const status = info.event.extendedProps.status;
-            info.el.classList.add(`status-${status}`);
-            
+
+            if (isCallOut) {
+                info.el.classList.add('status-callout');
+            } else {
+                info.el.classList.add(`status-${status}`);
+            }
+
             // Add tooltip
-            info.el.setAttribute('title', 
-                `${info.event.extendedProps.employee}\n` +
-                `Type: ${info.event.extendedProps.type}\n` +
-                `Status: ${info.event.extendedProps.status.charAt(0).toUpperCase() + info.event.extendedProps.status.slice(1)}\n` +
-                `Duration: ${info.event.extendedProps.duration}`
-            );
+            const tooltipText = isCallOut
+                ? `Call Out - ${info.event.extendedProps.employee}\n` +
+                  `Type: ${info.event.extendedProps.type}\n` +
+                  `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
+                  `Duration: ${info.event.extendedProps.duration}`
+                : `${info.event.extendedProps.employee}\n` +
+                  `Type: ${info.event.extendedProps.type}\n` +
+                  `Status: ${status.charAt(0).toUpperCase() + status.slice(1)}\n` +
+                  `Duration: ${info.event.extendedProps.duration}`;
+
+            info.el.setAttribute('title', tooltipText);
         }
     });
     
@@ -280,20 +305,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const props = event.extendedProps;
         const startDate = new Date(event.start);
         const endDate = event.end ? new Date(event.end) : startDate;
-        
+
+        // Determine status badge class
+        const statusBadgeClass = props.is_call_out ? 'status-callout' : `status-${props.status}`;
+
         const detailsHtml = `
+            ${props.is_call_out ? `
+            <div class="alert alert-danger mb-3">
+                <strong><i class="fas fa-exclamation-circle me-2"></i>Call Out Request</strong>
+            </div>
+            ` : ''}
             <div class="row">
                 <div class="col-sm-4"><strong>Employee:</strong></div>
                 <div class="col-sm-8">${props.employee}</div>
             </div>
             <div class="row mt-2">
                 <div class="col-sm-4"><strong>Type:</strong></div>
-                <div class="col-sm-8">${props.type}</div>
+                <div class="col-sm-8">${props.type}${props.is_call_out ? ' (Call Out)' : ''}</div>
             </div>
             <div class="row mt-2">
                 <div class="col-sm-4"><strong>Status:</strong></div>
                 <div class="col-sm-8">
-                    <span class="badge status-${props.status}">${props.status.charAt(0).toUpperCase() + props.status.slice(1)}</span>
+                    <span class="badge ${statusBadgeClass}">${props.status.charAt(0).toUpperCase() + props.status.slice(1)}</span>
                 </div>
             </div>
             <div class="row mt-2">
@@ -315,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             ` : ''}
         `;
-        
+
         document.getElementById('eventDetails').innerHTML = detailsHtml;
         eventModal.show();
     }
@@ -343,13 +376,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         upcomingContainer.innerHTML = upcomingEvents.map(event => {
             const startDate = new Date(event.start);
+            const isCallOut = event.extendedProps.is_call_out;
+            const statusClass = isCallOut ? 'callout' : event.extendedProps.status;
+            const badgeClass = isCallOut ? 'status-callout' : `status-${event.extendedProps.status}`;
+            const title = isCallOut ? `Call Out - ${event.extendedProps.employee}` : event.extendedProps.employee;
+
             return `
                 <div class="col-md-6 mb-3">
-                    <div class="upcoming-event ${event.extendedProps.status}">
-                        <strong>${event.extendedProps.employee}</strong><br>
-                        <small class="text-muted">${event.extendedProps.type}</small><br>
+                    <div class="upcoming-event ${statusClass}">
+                        <strong>${title}</strong><br>
+                        <small class="text-muted">${event.extendedProps.type}${isCallOut ? ' (Call Out)' : ''}</small><br>
                         <small>${startDate.toLocaleDateString()} • ${event.extendedProps.duration}${event.extendedProps.is_partial_day ? '' : ' days'}</small><br>
-                        <span class="badge status-${event.extendedProps.status} mt-1">${event.extendedProps.status.charAt(0).toUpperCase() + event.extendedProps.status.slice(1)}</span>
+                        <span class="badge ${badgeClass} mt-1">${event.extendedProps.status.charAt(0).toUpperCase() + event.extendedProps.status.slice(1)}</span>
                     </div>
                 </div>
             `;

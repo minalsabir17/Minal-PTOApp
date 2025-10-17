@@ -211,11 +211,15 @@ def initialize_database():
                     db.session.add(new_request)
 
         db.session.commit()
-        print(f"✅ Database initialized with {len(sample_employees)} employees and {len(sample_pto_requests)} PTO requests")
+        print(f"Database initialized with {len(sample_employees)} employees and {len(sample_pto_requests)} PTO requests")
 
 # Import and register routes
 from routes_simple import register_routes
 register_routes(app)
+
+# Register Twilio routes for call-out feature
+from routes_twilio import register_twilio_routes
+register_twilio_routes(app)
 
 with app.app_context():
     initialize_database()

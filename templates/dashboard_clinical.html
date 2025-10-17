@@ -45,16 +45,108 @@
 }
 
 .nav-tabs .nav-link {
-    color: #495057;
+    color: #ffffff;  /* White text for better visibility */
     font-weight: 500;
+    background-color: rgba(255, 255, 255, 0.1);  /* Slight white background */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-right: 2px;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
 .nav-tabs .nav-link.active {
+    color: #0d6efd;  /* Bootstrap primary color for active tab */
     font-weight: 600;
+    background-color: #ffffff;
+    border-color: #ffffff #ffffff #fff;
 }
 
 .nav-tabs .badge {
     margin-left: 5px;
+}
+
+/* Filter buttons */
+.filter-buttons {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.filter-buttons .btn-group {
+    width: 100%;
+}
+
+.filter-buttons .btn {
+    flex: 1;
+}
+
+.filter-badge {
+    font-size: 0.75em;
+    vertical-align: middle;
+    margin-left: 5px;
+}
+
+/* Call-out detail styles */
+.call-out-details {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-left: 4px solid #dc3545;
+    margin: 10px 0;
+}
+
+.call-out-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-right: 8px;
+}
+
+.call-out-badge.phone {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.call-out-badge.sms {
+    background-color: #28a745;
+    color: white;
+}
+
+.auth-badge {
+    background-color: #6c757d;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+}
+
+.recording-player {
+    background-color: #e7f3ff;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.sms-message {
+    background-color: white;
+    padding: 15px;
+    border-left: 3px solid #17a2b8;
+    font-style: italic;
+    margin-top: 10px;
+}
+
+.toggle-details {
+    cursor: pointer;
+    color: #0d6efd;
+    text-decoration: underline;
+}
+
+.toggle-details:hover {
+    color: #0a58ca;
 }
 </style>
 {% endblock %}
@@ -168,6 +260,30 @@
             <!-- Pending PTO Tab -->
             <div class="tab-pane fade show active" id="pending-pto" role="tabpanel">
                 {% if requests %}
+                <!-- Filter Controls -->
+                <div class="filter-buttons">
+                    <div class="btn-group" role="group" aria-label="Filter requests">
+                        <input type="radio" class="btn-check" name="clinicalFilter" id="filterAllClinical" value="all" checked autocomplete="off">
+                        <label class="btn btn-outline-primary" for="filterAllClinical">
+                            All Requests <span class="filter-badge badge bg-primary" id="countAllClinical">{{ requests|length }}</span>
+                                        <br>
+                                        <small class="toggle-details" onclick="toggleCallOutDetails({{ request.id }})">
+                                            <i class="fas fa-info-circle"></i> View Details
+                                        </small>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="clinicalFilter" id="filterPTOClinical" value="pto" autocomplete="off">
+                        <label class="btn btn-outline-success" for="filterPTOClinical">
+                            PTO Only <span class="filter-badge badge bg-success" id="countPTOClinical">0</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="clinicalFilter" id="filterCallOutClinical" value="callout" autocomplete="off">
+                        <label class="btn btn-outline-danger" for="filterCallOutClinical">
+                            Call-Outs Only <span class="filter-badge badge bg-danger" id="countCallOutClinical">0</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -182,7 +298,7 @@
                         </thead>
                         <tbody>
                             {% for request in requests %}
-                            <tr>
+                            <tr data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}" class="request-row">
                                 <td>
                                     <strong>{{ request.member.name }}</strong><br>
                                     <small class="text-muted">{{ request.member.position.name }}</small>
@@ -209,7 +325,13 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% if request.is_call_out %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <div class="submission-timestamp">
@@ -485,6 +607,54 @@ document.addEventListener('DOMContentLoaded', function() {
             bsTab.show();
         }
     }
+
+    // Initialize filter counts
+    updateFilterCounts();
+
+    // Handle filter changes
+    const filterButtons = document.querySelectorAll('input[name="clinicalFilter"]');
+    filterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            filterRequests(this.value);
+        });
+    });
 });
+
+function updateFilterCounts() {
+    const allRows = document.querySelectorAll('#pending-pto .request-row');
+    let ptoCount = 0;
+    let calloutCount = 0;
+
+    allRows.forEach(row => {
+        const type = row.getAttribute('data-request-type');
+        if (type === 'callout') {
+            calloutCount++;
+        } else {
+            ptoCount++;
+        }
+    });
+
+    document.getElementById('countAllClinical').textContent = allRows.length;
+    document.getElementById('countPTOClinical').textContent = ptoCount;
+    document.getElementById('countCallOutClinical').textContent = calloutCount;
+}
+
+function filterRequests(filterType) {
+    const allRows = document.querySelectorAll('#pending-pto .request-row');
+
+    allRows.forEach(row => {
+        const rowType = row.getAttribute('data-request-type');
+
+        if (filterType === 'all') {
+            row.style.display = '';
+        } else if (filterType === 'pto' && rowType === 'pto') {
+            row.style.display = '';
+        } else if (filterType === 'callout' && rowType === 'callout') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
 </script>
 {% endblock %}

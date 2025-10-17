@@ -79,6 +79,24 @@
                         </div>
                     </div>
 
+                    <!-- Sick Balance -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="sick_balance" class="form-label">
+                                <i class="fas fa-medkit"></i> Sick Time Balance (Hours) <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" step="0.1" class="form-control" id="sick_balance" name="sick_balance"
+                                   value="{{ employee.sick_balance_hours }}" min="0" max="1000" required>
+                            <div class="form-text">Default: 60 hours (8 days). 7.5 hours = 1 workday</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i> Sick Time Balance (Days)<br>
+                                <strong class="text-danger">{{ "%.1f"|format(employee.sick_balance_days) }} days</strong>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Position Information (Read-only for editing) -->
                     <div class="row mb-3">
                         <div class="col-md-6">

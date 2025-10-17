@@ -85,6 +85,7 @@
                         <th>Team</th>
                         <th>Position</th>
                         <th>PTO Balance</th>
+                        <th>Sick Balance</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -119,6 +120,12 @@
                             <div>
                                 <strong>{{ "%.1f"|format(employee.pto_balance_days) }} days</strong>
                                 <br><small class="text-muted">{{ employee.pto_balance_hours }} hours</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <strong>{{ "%.1f"|format(employee.sick_balance_days) }} days</strong>
+                                <br><small class="text-muted">{{ employee.sick_balance_hours }} hours</small>
                             </div>
                         </td>
                         <td>

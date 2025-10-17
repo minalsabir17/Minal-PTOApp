@@ -21,7 +21,9 @@ class User(db.Model):
     name = Column(String(100), nullable=False)
     email = Column(String(120), unique=True, nullable=False)
     phone = Column(String(20), nullable=True)  # Phone number field
-    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours
+    pin = Column(String(4), nullable=True)  # 4-digit PIN for phone authentication via Twilio
+    pto_balance_hours = Column(Numeric(5,2), default=60.0)  # PTO balance in hours (vacation/personal)
+    sick_balance_hours = Column(Numeric(5,2), default=60.0)  # Sick time balance in hours (separate from PTO)
     pto_refresh_date = Column(Date, default=datetime(2025, 1, 1).date())    # Annual refresh date
     created_at = Column(DateTime, default=get_eastern_time)
     
@@ -34,18 +36,31 @@ class User(db.Model):
     
     @property
     def pto_balance_days(self):
-        """Convert hours to days (7.5 hours = 1 day)"""
+        """Convert PTO hours to days (7.5 hours = 1 day)"""
         return round(float(self.pto_balance_hours) / 7.5, 1)
-    
+
+    @property
+    def sick_balance_days(self):
+        """Convert sick hours to days (7.5 hours = 1 day)"""
+        return round(float(self.sick_balance_hours) / 7.5, 1)
+
     def get_remaining_pto_hours(self):
         """Calculate remaining PTO hours - balance is now deducted immediately upon approval"""
         # PTO balance is now deducted immediately upon approval, so just return current balance
         # Note: Balance already reflects deducted hours from approved/in-progress requests
         return max(0, float(self.pto_balance_hours))
-    
+
     def get_remaining_pto_days(self):
         """Calculate remaining PTO in days"""
         return round(self.get_remaining_pto_hours() / 7.5, 1)
+
+    def get_remaining_sick_hours(self):
+        """Calculate remaining sick time hours"""
+        return max(0, float(self.sick_balance_hours))
+
+    def get_remaining_sick_days(self):
+        """Calculate remaining sick time in days"""
+        return round(self.get_remaining_sick_hours() / 7.5, 1)
     
     def refresh_pto_balance(self, new_balance_hours=60.0):
         """Reset PTO balance to new amount (usually done annually)"""
@@ -152,6 +167,9 @@ class PTORequest(db.Model):
     start_time = Column(String(8))  # HH:MM format for partial days
     end_time = Column(String(8))  # HH:MM format for partial days
     reason = Column(Text)  # Optional reason (especially for partial days)
+
+    # Call Out tracking
+    is_call_out = Column(Boolean, default=False)  # True for call-out (today only) requests
     
     # Workflow tracking
     timekeeping_entered = Column(Boolean, default=False)  # Checkbox for timekeeping
@@ -166,7 +184,7 @@ class PTORequest(db.Model):
     def __init__(self, member=None, start_date=None, end_date=None, pto_type=None,
                  manager_team=None, status='pending', coverage_arranged=False,
                  timekeeping_entered=False, is_partial_day=False,
-                 start_time=None, end_time=None, reason=None, **kwargs):
+                 start_time=None, end_time=None, reason=None, is_call_out=False, **kwargs):
         super().__init__(**kwargs)
         if member:
             self.member = member
@@ -185,6 +203,7 @@ class PTORequest(db.Model):
         self.start_time = start_time
         self.end_time = end_time
         self.reason = reason
+        self.is_call_out = is_call_out
     
     # Relationships
     member = relationship("TeamMember", back_populates="pto_requests")
@@ -287,6 +306,48 @@ class PendingEmployee(db.Model):
     
     # Relationship to approving manager
     approved_by = relationship("Manager", foreign_keys=[approved_by_id])
-    
+
     def __repr__(self):
         return f'<PendingEmployee {self.name} - {self.status}>'
+
+class CallOutRecord(db.Model):
+    """Model for tracking phone and SMS call-out submissions via Twilio"""
+    __tablename__ = 'call_out_records'
+
+    id = Column(Integer, primary_key=True)
+    member_id = Column(Integer, ForeignKey('team_members.id'), nullable=False)
+    pto_request_id = Column(Integer, ForeignKey('pto_requests.id'), nullable=True)
+
+    # Twilio tracking information
+    call_sid = Column(String(100), nullable=True)  # Twilio call/message SID
+    recording_url = Column(Text, nullable=True)  # Twilio recording URL (for voice calls)
+    recording_duration = Column(Integer, nullable=True)  # Recording length in seconds
+
+    # Call-out metadata
+    source = Column(String(10), nullable=False)  # 'phone' or 'sms'
+    phone_number_used = Column(String(20), nullable=False)  # Caller's phone number
+    verified = Column(Boolean, default=False)  # Whether authentication succeeded
+    authentication_method = Column(String(20), nullable=True)  # 'phone_match', 'pin', or 'manual'
+
+    # Message content
+    message_text = Column(Text, nullable=True)  # SMS text or call transcript
+
+    # Timestamps
+    created_at = Column(DateTime, default=get_eastern_time)
+    processed_at = Column(DateTime, nullable=True)
+
+    def __init__(self, member_id=None, source=None, phone_number_used=None, **kwargs):
+        super().__init__(**kwargs)
+        if member_id:
+            self.member_id = member_id
+        if source:
+            self.source = source
+        if phone_number_used:
+            self.phone_number_used = phone_number_used
+
+    # Relationships
+    member = relationship("TeamMember", backref="call_out_records")
+    pto_request = relationship("PTORequest", backref="call_out_record", uselist=False)
+
+    def __repr__(self):
+        return f'<CallOutRecord {self.id} - {self.source} - {self.member.name if self.member else "Unknown"}>'

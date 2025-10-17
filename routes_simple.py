@@ -190,6 +190,39 @@ def register_routes(app):
             positions[p.team].append(p.name)
         return jsonify(positions)
 
+    @app.route('/api/callout-details/<int:request_id>')
+    def api_callout_details(request_id):
+        """API endpoint to get call-out details for a specific PTO request"""
+        try:
+            # Get the PTO request
+            pto_request = PTORequest.query.get(request_id)
+            if not pto_request or not pto_request.is_call_out:
+                return jsonify({'success': False, 'message': 'Call-out not found'}), 404
+
+            # Get the associated call-out record
+            from models import CallOutRecord
+            callout_record = CallOutRecord.query.filter_by(pto_request_id=request_id).first()
+
+            if not callout_record:
+                return jsonify({'success': False, 'message': 'Call-out details not found'}), 404
+
+            # Prepare call-out data
+            callout_data = {
+                'source': callout_record.source,
+                'phone_number': callout_record.phone_number_used,
+                'authentication_method': callout_record.authentication_method,
+                'verified': callout_record.verified,
+                'recording_url': callout_record.recording_url,
+                'message_text': callout_record.message_text,
+                'created_at': callout_record.created_at.strftime('%m/%d/%Y %I:%M %p') if callout_record.created_at else None,
+                'call_sid': callout_record.call_sid
+            }
+
+            return jsonify({'success': True, 'callout': callout_data})
+
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/submit_request', methods=['POST'])
     def submit_request():
         """Handle PTO request submission or new employee registration"""

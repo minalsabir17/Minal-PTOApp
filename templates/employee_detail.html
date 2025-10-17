@@ -45,7 +45,8 @@
                     </div>
                     <div class="col-md-6">
                         <h6>PTO Information</h6>
-                        <p><strong>Current Balance:</strong> {{ employee.pto_balance_hours }} hours ({{ "%.1f"|format(employee.pto_balance_days) }} days)</p>
+                        <p><strong>PTO Balance:</strong> {{ employee.pto_balance_hours }} hours ({{ "%.1f"|format(employee.pto_balance_days) }} days)</p>
+                        <p><strong>Sick Time Balance:</strong> {{ employee.sick_balance_hours }} hours ({{ "%.1f"|format(employee.sick_balance_days) }} days)</p>
                     </div>
                 </div>
 
@@ -66,12 +67,116 @@
     </div>
 
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
+        <!-- PTO Statistics Card -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>PTO Statistics</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">PTO request history and activity tracking coming soon.</p>
+                <div class="mb-3">
+                    <strong>Total Requests:</strong> {{ stats.total_requests }}<br>
+                    <strong>Approved:</strong> <span class="text-success">{{ stats.approved_requests }}</span><br>
+                    <strong>Pending:</strong> <span class="text-warning">{{ stats.pending_requests }}</span><br>
+                    <strong>Denied:</strong> <span class="text-danger">{{ stats.denied_requests }}</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Total PTO Used:</strong> {{ stats.total_pto_used }} days
+                </div>
+            </div>
+        </div>
+
+        <!-- Call-Out Tracking Card -->
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Call-Out Tracking</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Total Call-Outs:</strong> {{ stats.total_callouts }}<br>
+                    <strong>Approved:</strong> <span class="text-success">{{ stats.approved_callouts }}</span><br>
+                    <strong>Pending:</strong> <span class="text-warning">{{ stats.pending_callouts }}</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Sick Days Used (Call-Outs):</strong> {{ stats.total_callouts_used }} days
+                </div>
+                {% if stats.total_callouts > 0 %}
+                <div class="alert alert-info mt-3 mb-0" role="alert">
+                    <small><i class="fas fa-info-circle me-1"></i>Call-outs are tracked separately and deduct from sick time balance.</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PTO Request History -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Request History</h5>
+            </div>
+            <div class="card-body">
+                {% if pto_requests %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Dates</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in pto_requests %}
+                            <tr>
+                                <td>#{{ request.id }}</td>
+                                <td>
+                                    {% if request.is_call_out %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ request.start_date }} to {{ request.end_date }}
+                                    {% if request.is_partial_day %}
+                                    <br><small class="text-muted">
+                                        <i class="fas fa-clock"></i> {{ request.start_time }} - {{ request.end_time }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.is_partial_day %}
+                                        {{ "%.1f"|format(request.duration_hours) }} hours
+                                    {% else %}
+                                        {{ request.duration_days }} day{{ 's' if request.duration_days != 1 else '' }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge status-{{ request.status }}">
+                                        {{ request.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ request.submitted_at.strftime('%m/%d/%Y') if request.submitted_at else 'N/A' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No PTO requests found for this employee.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

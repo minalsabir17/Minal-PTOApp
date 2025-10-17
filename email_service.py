@@ -76,25 +76,46 @@ class EmailService:
         employee_name = pto_request.member.name
         request_id = pto_request.id
 
+        # Check if this is a call-out and get call-out details
+        call_out_info = None
+        if pto_request.is_call_out:
+            from models import CallOutRecord
+            call_out_record = CallOutRecord.query.filter_by(pto_request_id=pto_request.id).first()
+            if call_out_record:
+                call_out_info = {
+                    'source': call_out_record.source,
+                    'phone': call_out_record.phone_number_used,
+                    'auth_method': call_out_record.authentication_method,
+                    'recording_url': call_out_record.recording_url,
+                    'message_text': call_out_record.message_text,
+                    'created_at': call_out_record.created_at
+                }
+
         # Send BOTH employee confirmation AND manager notification
 
         # 1. Employee confirmation email
         employee_email = 'samantha.zakow@mountsinai.org'  # Override for testing
         employee_subject = f"PTO Request Submitted - Request #{request_id}"
 
+        # Add call-out badge to subject if applicable
+        if call_out_info:
+            employee_subject = f"🔴 CALL-OUT Recorded - Request #{request_id}"
+
         employee_body_html = f"""
         <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #17a2b8; color: white; padding: 20px; text-align: center;">
-                    <h2>PTO Request Confirmation</h2>
+                <div style="background-color: {'#dc3545' if call_out_info else '#17a2b8'}; color: white; padding: 20px; text-align: center;">
+                    <h2>{'🔴 CALL-OUT Confirmation' if call_out_info else 'PTO Request Confirmation'}</h2>
                 </div>
 
                 <div style="padding: 20px; background-color: #f8f9fa;">
                     <p>Dear {employee_name},</p>
 
-                    <p>Your PTO request has been successfully submitted and is pending manager approval.</p>
+                    <p>Your {'<strong>same-day call-out</strong>' if call_out_info else 'PTO request'} has been successfully submitted and is pending manager approval.</p>
 
-                    <div style="background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid #17a2b8;">
+                    {'<div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px;"><strong>⚠️ Same-Day Call-Out:</strong> This is an urgent request for today. Your manager has been notified immediately.</div>' if call_out_info else ''}
+
+                    <div style="background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid {'#dc3545' if call_out_info else '#17a2b8'};">
                         <h3 style="margin-top: 0;">Request Details:</h3>
                         <ul style="list-style: none; padding: 0;">
                             <li><strong>Request ID:</strong> #{request_id}</li>
@@ -103,6 +124,9 @@ class EmailService:
                             <li><strong>PTO Type:</strong> {pto_request.pto_type}</li>
                             <li><strong>Reason:</strong> {pto_request.reason}</li>
                             <li><strong>Status:</strong> <span style="color: #ffc107; font-weight: bold;">PENDING APPROVAL</span></li>
+                            {'<li><strong>Submitted Via:</strong> <span style="color: #17a2b8;">📞 Phone Call</span></li>' if call_out_info and call_out_info['source'] == 'phone' else ''}
+                            {'<li><strong>Submitted Via:</strong> <span style="color: #17a2b8;">💬 Text Message</span></li>' if call_out_info and call_out_info['source'] == 'sms' else ''}
+                            {'<li><strong>Phone Used:</strong> ' + call_out_info['phone'] + '</li>' if call_out_info else ''}
                         </ul>
                     </div>
 
@@ -142,19 +166,65 @@ class EmailService:
 
         # 2. Manager notification
         manager_email = self.admin_email if pto_request.manager_team == 'admin' else self.clinical_email
-        manager_subject = f"New PTO Request - {employee_name}"
+        manager_subject = f"{'🔴 URGENT CALL-OUT' if call_out_info else 'New PTO Request'} - {employee_name}"
+
+        # Build call-out details section for manager
+        call_out_section = ''
+        if call_out_info:
+            recording_player = ''
+            if call_out_info['source'] == 'phone' and call_out_info['recording_url']:
+                recording_player = f'''
+                    <div style="background-color: #e7f3ff; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                        <h4 style="margin-top: 0;">📞 Voice Recording:</h4>
+                        <audio controls style="width: 100%;">
+                            <source src="{call_out_info['recording_url']}" type="audio/mpeg">
+                            Your browser does not support audio playback.
+                        </audio>
+                        <p style="font-size: 0.9em; margin-top: 10px;">
+                            <a href="{call_out_info['recording_url']}" target="_blank">Download Recording</a>
+                        </p>
+                    </div>
+                '''
+
+            sms_message = ''
+            if call_out_info['source'] == 'sms' and call_out_info['message_text']:
+                sms_message = f'''
+                    <div style="background-color: #e7f3ff; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                        <h4 style="margin-top: 0;">💬 SMS Message:</h4>
+                        <p style="font-style: italic; padding: 10px; background-color: white; border-left: 3px solid #17a2b8;">
+                            "{call_out_info['message_text']}"
+                        </p>
+                    </div>
+                '''
+
+            source_icon = '📞 Phone Call' if call_out_info['source'] == 'phone' else '💬 Text Message'
+            auth_badge = call_out_info['auth_method'].replace('_', ' ').title() if call_out_info['auth_method'] else 'Unknown'
+
+            call_out_section = f'''
+                <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                    <h3 style="margin-top: 0; color: #856404;">⚠️ SAME-DAY CALL-OUT</h3>
+                    <p style="margin: 5px 0;"><strong>Submitted Via:</strong> {source_icon}</p>
+                    <p style="margin: 5px 0;"><strong>Phone Number:</strong> {call_out_info['phone']}</p>
+                    <p style="margin: 5px 0;"><strong>Authentication:</strong> <span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.9em;">✓ {auth_badge}</span></p>
+                    <p style="margin: 5px 0;"><strong>Received At:</strong> {call_out_info['created_at'].strftime('%I:%M %p') if call_out_info['created_at'] else 'N/A'}</p>
+                </div>
+                {recording_player}
+                {sms_message}
+            '''
 
         manager_body_html = f"""
         <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #28a745; color: white; padding: 20px; text-align: center;">
-                    <h2>New PTO Request Pending Approval</h2>
+                <div style="background-color: {'#dc3545' if call_out_info else '#28a745'}; color: white; padding: 20px; text-align: center;">
+                    <h2>{'🔴 URGENT: Same-Day Call-Out' if call_out_info else 'New PTO Request Pending Approval'}</h2>
                 </div>
 
                 <div style="padding: 20px; background-color: #f8f9fa;">
-                    <p>A new PTO request requires your attention.</p>
+                    <p>{'<strong style="color: #dc3545;">URGENT:</strong> An employee has called out sick for TODAY.' if call_out_info else 'A new PTO request requires your attention.'}</p>
 
-                    <div style="background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid #28a745;">
+                    {call_out_section}
+
+                    <div style="background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid {'#dc3545' if call_out_info else '#28a745'};">
                         <h3 style="margin-top: 0;">Request Details:</h3>
                         <ul style="list-style: none; padding: 0;">
                             <li><strong>Request ID:</strong> #{request_id}</li>
@@ -168,7 +238,7 @@ class EmailService:
                     </div>
 
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="http://127.0.0.1:5000/dashboard" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Review Request</a>
+                        <a href="http://127.0.0.1:5000/dashboard" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Review Request Now</a>
                     </div>
 
                     <p>Please log in to the PTO Management System to approve or deny this request.</p>
