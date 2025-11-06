@@ -80,6 +80,9 @@ class Position(db.Model):
     def __repr__(self):
         return f'<Position {self.name}>'
 
+    def __str__(self):
+        return self.name
+
 class TeamMember(User):
     """Team member inherits from User"""
     __tablename__ = 'team_members'

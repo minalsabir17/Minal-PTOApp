@@ -66,9 +66,19 @@ def register_twilio_routes(app):
             except Exception as e:
                 logger.error(f"Failed to send email notification: {str(e)}")
 
+            # Send SMS confirmation to employee using Twilio API
+            sms_service.send_employee_confirmation_sms(
+                to_number=from_number,
+                employee_name=member.name,
+                request_id=pto_request.id
+            )
+
             # Optionally send SMS to manager (if configured)
             import os
-            manager_team = member.team
+            from dotenv import load_dotenv
+            load_dotenv(override=True)  # Reload .env to get latest values
+
+            manager_team = member.position.team if member.position else None
             manager_sms = None
 
             if manager_team == 'admin':
@@ -76,19 +86,17 @@ def register_twilio_routes(app):
             elif manager_team == 'clinical':
                 manager_sms = os.getenv('MANAGER_CLINICAL_SMS')
 
-            if manager_sms:
+            logger.info(f"Manager team: {manager_team}, Manager SMS: {manager_sms}")
+
+            if manager_sms and manager_sms.strip():
                 sms_service.send_manager_notification_sms(
-                    manager_sms,
+                    manager_sms.strip(),
                     member.name,
                     pto_request.id
                 )
 
-            # Generate SMS response to employee
-            twiml_response = sms_service.generate_sms_response(
-                authenticated=True,
-                member=member,
-                request_id=pto_request.id
-            )
+            # Generate empty TwiML response (SMS already sent via API)
+            twiml_response = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
             return twiml_response, 200, {'Content-Type': 'text/xml'}
 

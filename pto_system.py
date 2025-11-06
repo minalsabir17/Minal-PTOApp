@@ -112,8 +112,11 @@ class PTOTrackerSystem:
             )
             db.session.add(member)
             db.session.flush()  # Get the ID
-        
-        # Create PTO request
+
+        # Check if this is a call-out (should be auto-approved)
+        is_call_out = pto_data.get('is_call_out', False)
+
+        # Create PTO request with auto-approval for call-outs
         request = PTORequest(
             member_id=member.id,
             start_date=pto_data['start_date'],
@@ -124,12 +127,22 @@ class PTOTrackerSystem:
             start_time=pto_data.get('start_time'),
             end_time=pto_data.get('end_time'),
             reason=pto_data.get('reason'),
-            is_call_out=pto_data.get('is_call_out', False)
+            is_call_out=is_call_out,
+            status='approved' if is_call_out else 'pending'  # Auto-approve call-outs
         )
-        
+
         db.session.add(request)
+        db.session.flush()  # Get the ID before deducting balance
+
+        # If call-out, automatically deduct from sick balance
+        if is_call_out and member:
+            hours_to_deduct = request.duration_hours
+            current_sick_balance = float(member.sick_balance_hours)
+            new_sick_balance = max(0, current_sick_balance - hours_to_deduct)
+            member.sick_balance_hours = new_sick_balance
+
         db.session.commit()
-        
+
         return request
     
     def get_requests_by_team(self, team):

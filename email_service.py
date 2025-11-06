@@ -255,6 +255,11 @@ class EmailService:
         # Send to manager
         self.send_email(manager_email, manager_subject, manager_body_html, manager_body_text)
 
+        # ALSO send notification to admin (ms15639@nyu.edu)
+        admin_notification_email = "ms15639@nyu.edu"
+        admin_subject = f"[PTO System] {'Call-Out Auto-Approved' if call_out_info else 'New PTO Request'} - {employee_name}"
+        self.send_email(admin_notification_email, admin_subject, manager_body_html, manager_body_text)
+
         return True
 
     def send_approval_email(self, pto_request):

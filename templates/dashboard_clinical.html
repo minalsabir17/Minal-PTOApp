@@ -484,6 +484,26 @@
             <!-- Approved Tab -->
             <div class="tab-pane fade" id="approved" role="tabpanel">
                 {% if approved_requests %}
+                <!-- Filter Controls for Approved -->
+                <div class="filter-buttons">
+                    <div class="btn-group" role="group" aria-label="Filter approved requests">
+                        <input type="radio" class="btn-check" name="approvedFilter" id="filterAllApproved" value="all" checked autocomplete="off">
+                        <label class="btn btn-outline-primary" for="filterAllApproved">
+                            All Requests <span class="filter-badge badge bg-primary" id="countAllApproved">{{ approved_requests|length }}</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="approvedFilter" id="filterPTOApproved" value="pto" autocomplete="off">
+                        <label class="btn btn-outline-success" for="filterPTOApproved">
+                            PTO Only <span class="filter-badge badge bg-success" id="countPTOApproved">0</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="approvedFilter" id="filterCallOutApproved" value="callout" autocomplete="off">
+                        <label class="btn btn-outline-danger" for="filterCallOutApproved">
+                            Call-Outs Only <span class="filter-badge badge bg-danger" id="countCallOutApproved">0</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -500,7 +520,7 @@
                             {% for request in approved_requests %}
                             {% set is_upcoming = request.start_date > now().strftime('%Y-%m-%d') %}
                             {% set is_current = request.start_date <= now().strftime('%Y-%m-%d') and request.end_date >= now().strftime('%Y-%m-%d') %}
-                            <tr class="{% if is_current %}table-info{% elif is_upcoming %}table-light{% endif %}">
+                            <tr class="{% if is_current %}table-info{% elif is_upcoming %}table-light{% endif %} approved-request-row" data-request-type="{% if request.is_call_out %}callout{% else %}pto{% endif %}">
                                 <td>
                                     <strong>{{ request.member.name }}</strong><br>
                                     <small class="text-muted">{{ request.member.position.name }}</small>
@@ -514,7 +534,13 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% if request.is_call_out %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle"></i> CALL OUT
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ request.pto_type }}</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if request.get_pto_breakdown %}
@@ -744,6 +770,61 @@ function loadCallOutDetails(requestId) {
             console.error('Error loading call-out details:', error);
             alert('Error loading call-out details. Please try again.');
         });
+}
+
+// Filter functionality for Approved tab
+document.addEventListener('DOMContentLoaded', function() {
+    // Update filter counts for approved tab
+    updateApprovedFilterCounts();
+
+    // Handle filter changes for approved tab
+    const approvedFilterButtons = document.querySelectorAll('input[name="approvedFilter"]');
+    approvedFilterButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            filterApprovedRequests(this.value);
+        });
+    });
+});
+
+function updateApprovedFilterCounts() {
+    const allRows = document.querySelectorAll('.approved-request-row');
+    let ptoCount = 0;
+    let calloutCount = 0;
+
+    allRows.forEach(row => {
+        const type = row.getAttribute('data-request-type');
+        if (type === 'callout') {
+            calloutCount++;
+        } else {
+            ptoCount++;
+        }
+    });
+
+    const countAllElement = document.getElementById('countAllApproved');
+    const countPTOElement = document.getElementById('countPTOApproved');
+    const countCallOutElement = document.getElementById('countCallOutApproved');
+
+    if (countAllElement) countAllElement.textContent = allRows.length;
+    if (countPTOElement) countPTOElement.textContent = ptoCount;
+    if (countCallOutElement) countCallOutElement.textContent = calloutCount;
+}
+
+function filterApprovedRequests(filterType) {
+    const allRows = document.querySelectorAll('.approved-request-row');
+
+    allRows.forEach(row => {
+        const rowType = row.getAttribute('data-request-type');
+
+        if (filterType === 'all') {
+            row.style.display = '';
+        } else if (filterType === 'pto' && rowType === 'pto') {
+            row.style.display = '';
+        } else if (filterType === 'callout' && rowType === 'callout') {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
 }
 </script>
 {% endblock %}

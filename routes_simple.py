@@ -280,6 +280,9 @@ def register_routes(app):
             pto_type = request.form.get('pto_type')
             reason = request.form.get('reason')
 
+            # Check if this is a call-out request
+            call_out_flag = request.form.get('call_out', '0') == '1'
+
             # Find the team member by name and position
             member = TeamMember.query.join(Position).filter(
                 TeamMember.name == name,
@@ -291,7 +294,18 @@ def register_routes(app):
                 flash(f'Employee {name} not found in {team} team', 'error')
                 return redirect(url_for('index'))
 
+            # Server-side validation for call-out requests
+            if call_out_flag:
+                if pto_type != 'Sick Leave':
+                    flash('Call-out requests must use PTO Type: Sick Leave.', 'error')
+                    return redirect(url_for('index'))
+
+                if not reason or reason.strip() == '':
+                    flash('Please provide a reason for calling out sick.', 'error')
+                    return redirect(url_for('index'))
+
             # Create PTO request with proper member relationship
+            # Call-outs are auto-approved, regular PTO is pending
             pto_request = PTORequest(
                 member_id=member.id,
                 start_date=start_date,
@@ -299,11 +313,20 @@ def register_routes(app):
                 pto_type=pto_type,
                 reason=reason,
                 manager_team=team,
-                status='pending'
+                is_call_out=call_out_flag,
+                status='approved' if call_out_flag else 'pending'
             )
 
             db.session.add(pto_request)
             db.session.commit()
+
+            # If call-out, automatically deduct from sick balance
+            if call_out_flag:
+                hours_to_deduct = pto_request.duration_hours
+                current_sick_balance = float(member.sick_balance_hours)
+                new_sick_balance = max(0, current_sick_balance - hours_to_deduct)
+                member.sick_balance_hours = new_sick_balance
+                db.session.commit()
 
             # Send email notification for PTO submission
             try:
@@ -312,7 +335,11 @@ def register_routes(app):
                 # Log error but don't fail the request
                 print(f"Failed to send submission email: {str(e)}")
 
-            flash(f'PTO request submitted successfully for {name}!', 'success')
+            # Different success message for call-out vs regular PTO
+            if call_out_flag:
+                flash(f'Call-out submitted successfully for {name}! Request ID: #{pto_request.id}', 'success')
+            else:
+                flash(f'PTO request submitted successfully for {name}! Request ID: #{pto_request.id}', 'success')
             return redirect(url_for('index'))
 
         except Exception as e:
@@ -330,9 +357,19 @@ def register_routes(app):
         # Convert PTO requests to FullCalendar events format
         calendar_events = []
         for request in all_requests:
-            # Determine colors based on status
-            color = '#28a745' if request.status == 'approved' else '#ffc107'
-            text_color = '#fff' if request.status == 'approved' else '#000'
+            # Determine colors based on call-out status first, then regular status
+            if request.is_call_out:
+                color = '#dc3545'  # Red for call-outs
+                text_color = '#fff'
+            elif request.status == 'approved':
+                color = '#28a745'  # Green for approved PTO
+                text_color = '#fff'
+            elif request.status == 'pending':
+                color = '#ffc107'  # Yellow for pending PTO
+                text_color = '#000'
+            else:
+                color = '#6c757d'  # Gray for other statuses
+                text_color = '#fff'
 
             # Calculate duration in business days
             try:
@@ -340,10 +377,16 @@ def register_routes(app):
             except:
                 duration = 1
 
+            # Determine title based on call-out status
+            if request.is_call_out:
+                title = f"Call Out - {request.member.name}"
+            else:
+                title = f'{request.member.name} - {request.pto_type}'
+
             # Create event for FullCalendar
             event = {
                 'id': f'pto-{request.id}',
-                'title': f'{request.member.name} - {request.pto_type}',
+                'title': title,
                 'start': request.start_date,
                 'end': request.end_date,
                 'backgroundColor': color,
@@ -358,6 +401,7 @@ def register_routes(app):
                     'reason': request.reason or '',
                     'duration': duration,
                     'is_partial_day': request.is_partial_day,
+                    'is_call_out': request.is_call_out,
                     'request_id': request.id
                 }
             }
@@ -443,9 +487,19 @@ def register_routes(app):
     def employees():
         """Employee management page"""
         team_members = TeamMember.query.all()
+
+        # Calculate comprehensive statistics
+        active_employees = [m for m in team_members if '[INACTIVE]' not in m.name]
+        total_pto_hours = sum(float(member.pto_balance_hours or 0) for member in team_members)
+        total_pto_days = total_pto_hours / 7.5  # Convert hours to days
+        avg_pto_days = total_pto_days / len(team_members) if team_members else 0
+
         stats = {
             'total_employees': len(team_members),
-            'total_pto_hours': sum(member.pto_balance_hours or 0 for member in team_members)
+            'active_employees': len(active_employees),
+            'total_pto_hours': total_pto_hours,
+            'total_pto_days': round(total_pto_days, 1),
+            'avg_pto_days': round(avg_pto_days, 1)
         }
         return render_template('employees.html', team_members=team_members, stats=stats)
 
@@ -501,8 +555,57 @@ def register_routes(app):
     @roles_required('admin', 'clinical', 'superadmin', 'moa_supervisor', 'echo_supervisor')
     def employee_detail(employee_id):
         """View employee details"""
+        from datetime import datetime, timedelta
+
         employee = TeamMember.query.get_or_404(employee_id)
-        return render_template('employee_detail.html', employee=employee)
+
+        # Get all PTO requests for this employee
+        pto_requests = PTORequest.query.filter_by(member_id=employee_id).order_by(PTORequest.created_at.desc()).all()
+
+        # Calculate statistics
+        total_requests = len(pto_requests)
+        approved_requests = len([r for r in pto_requests if r.status == 'approved'])
+        pending_requests = len([r for r in pto_requests if r.status == 'pending'])
+        denied_requests = len([r for r in pto_requests if r.status == 'denied'])
+
+        # Calculate call-out statistics
+        total_callouts = len([r for r in pto_requests if r.is_call_out])
+        approved_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'approved'])
+        pending_callouts = len([r for r in pto_requests if r.is_call_out and r.status == 'pending'])
+
+        # Calculate PTO days used (approved non-call-out requests)
+        total_pto_used = sum(r.duration_days for r in pto_requests
+                            if r.status == 'approved' and not r.is_call_out)
+
+        # Calculate sick days used (approved call-outs)
+        total_callouts_used = sum(r.duration_days for r in pto_requests
+                                 if r.status == 'approved' and r.is_call_out)
+
+        # Calculate days until PTO refresh
+        if employee.pto_refresh_date:
+            today = datetime.now().date()
+            refresh_date = employee.pto_refresh_date
+            if refresh_date < today:
+                # If refresh date has passed, calculate next year's refresh
+                refresh_date = datetime(today.year + 1, refresh_date.month, refresh_date.day).date()
+            days_until_refresh = (refresh_date - today).days
+        else:
+            days_until_refresh = None
+
+        stats = {
+            'total_requests': total_requests,
+            'approved_requests': approved_requests,
+            'pending_requests': pending_requests,
+            'denied_requests': denied_requests,
+            'total_callouts': total_callouts,
+            'approved_callouts': approved_callouts,
+            'pending_callouts': pending_callouts,
+            'total_pto_used': round(total_pto_used, 1),
+            'total_callouts_used': round(total_callouts_used, 1),
+            'days_until_refresh': days_until_refresh
+        }
+
+        return render_template('employee_detail.html', employee=employee, pto_requests=pto_requests, stats=stats)
 
     @app.route('/employee/edit/<int:employee_id>', methods=['GET', 'POST'])
     @roles_required('admin', 'clinical', 'superadmin')
@@ -514,9 +617,15 @@ def register_routes(app):
             try:
                 employee.name = request.form.get('name')
                 employee.email = request.form.get('email')
-                employee.phone = request.form.get('phone')  # Add phone field
+                employee.phone = request.form.get('phone')
+
+                # Update PTO balance
                 pto_balance = float(request.form.get('pto_balance', employee.pto_balance_hours))
                 employee.pto_balance_hours = pto_balance
+
+                # Update sick balance
+                sick_balance = float(request.form.get('sick_balance', employee.sick_balance_hours))
+                employee.sick_balance_hours = sick_balance
 
                 db.session.commit()
                 flash(f'Employee {employee.name} updated successfully!', 'success')

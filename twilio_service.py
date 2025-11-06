@@ -160,6 +160,25 @@ class TwilioSMSService:
             logger.error(f"Failed to create SMS call-out request: {str(e)}")
             raise
 
+    def send_employee_confirmation_sms(self, to_number, employee_name, request_id):
+        """Send SMS confirmation to employee"""
+        if not self.client or not to_number:
+            logger.warning("Cannot send employee confirmation: No client or phone number")
+            return False
+
+        try:
+            message_body = f"Call-out APPROVED, {employee_name}. Request #{request_id} has been automatically approved and your sick time has been deducted. Your manager has been notified. Feel better!"
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.sms_number,
+                to=to_number
+            )
+            logger.info(f"Employee confirmation sent to {to_number}: {message.sid}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send employee confirmation SMS: {str(e)}")
+            return False
+
     def send_manager_notification_sms(self, manager_number, employee_name, request_id):
         """Send SMS notification to manager (optional feature)"""
         if not self.client or not manager_number:

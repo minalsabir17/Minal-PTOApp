@@ -148,26 +148,12 @@ def handle_pto_request_submission():
 
     # Server-side validation for call-out requests
     if call_out_flag:
-        try:
-            from datetime import date
-            today_eastern = get_eastern_time().date()
-            # Parse dates from form (expected format YYYY-MM-DD)
-            start_date_val = datetime.strptime(pto_data['start_date'], '%Y-%m-%d').date()
-            end_date_val = datetime.strptime(pto_data['end_date'], '%Y-%m-%d').date()
-        except Exception as e:
-            flash('Invalid date format for Call Out request.', 'error')
-            return redirect(url_for('index'))
-
-        if start_date_val != today_eastern or end_date_val != today_eastern:
-            flash('Call Out requests must be for today only.', 'error')
-            return redirect(url_for('index'))
-
         if pto_data['pto_type'] != 'Sick Leave':
             flash('Call Out requests must use PTO Type: Sick Leave.', 'error')
             return redirect(url_for('index'))
 
         if not pto_data.get('reason') or pto_data.get('reason').strip() == '':
-            flash('Please provide a reason for calling out sick today.', 'error')
+            flash('Please provide a reason for calling out sick.', 'error')
             return redirect(url_for('index'))
     
     # Validate required fields
@@ -182,8 +168,12 @@ def handle_pto_request_submission():
     # Send notification emails
     request_data = {**member_data, **pto_data}
     send_submission_email(request_data, new_request.id)
-    
-    flash(f'PTO request submitted successfully! Request ID: #{new_request.id}', 'success')
+
+    # Different message for call-out vs PTO
+    if call_out_flag:
+        flash(f'Call-out successfully submitted! Request ID: #{new_request.id}', 'success')
+    else:
+        flash(f'PTO request submitted successfully! Request ID: #{new_request.id}', 'success')
     return redirect(url_for('index'))
 
 def send_employee_approval_email(pending_employee):

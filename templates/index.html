@@ -78,7 +78,7 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="call_out_checkbox" name="call_out_checkbox">
                                 <label class="form-check-label" for="call_out_checkbox">
-                                    Call Out (Today Only)
+                                    Call-out (Today Only)
                                 </label>
                             </div>
                         </div>
@@ -329,13 +329,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const dd = String(today.getDate()).padStart(2, '0');
         const isoDate = `${yyyy}-${mm}-${dd}`;
 
-        // Set dates to today and disable editing
+        // Set dates to today but keep them editable
         startDate.value = isoDate;
         endDate.value = isoDate;
-        startDate.setAttribute('readonly', 'true');
-        endDate.setAttribute('readonly', 'true');
-        startDate.classList.add('bg-light');
-        endDate.classList.add('bg-light');
 
         // Force PTO Type to Sick Leave and make readonly
         ptoType.value = 'Sick Leave';
@@ -352,18 +348,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Set hidden flag
         const callOutFlag = document.getElementById('call_out_flag');
-        if (callOutFlag) callOutFlag.value = '1';
+        if (callOutFlag) {
+            callOutFlag.value = '1';
+        }
 
         callOutActive = true;
     }
 
     function disableCallOutMode() {
-        // Re-enable date editing and PTO type
-        startDate.removeAttribute('readonly');
-        endDate.removeAttribute('readonly');
-        startDate.classList.remove('bg-light');
-        endDate.classList.remove('bg-light');
-
+        // Re-enable PTO type selection
         ptoType.style.pointerEvents = '';
         ptoType.style.backgroundColor = '';
         ptoType.classList.remove('bg-light');
@@ -399,17 +392,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validate reason
             if (!reason.value || reason.value.trim() === '') {
                 e.preventDefault();
-                showNotification('Please provide a reason for calling out sick today.', 'error');
+                showNotification('Please provide a reason for calling out sick.', 'error');
                 reason.focus();
-                return false;
-            }
-
-            // Ensure dates are today (extra server-side safety will also be considered)
-            const today = new Date();
-            const isoToday = today.toISOString().slice(0, 10);
-            if (startDate.value !== isoToday || endDate.value !== isoToday) {
-                e.preventDefault();
-                showNotification('Call Out requests must be for today only.', 'error');
                 return false;
             }
 

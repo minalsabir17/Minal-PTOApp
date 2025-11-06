@@ -29,8 +29,9 @@ db.init_app(app)
 
 def initialize_database():
     with app.app_context():
-        # Temporarily drop and recreate to update schema
-        db.drop_all()  # Enable to update schema
+        # Create tables if they don't exist (but don't drop existing data)
+        # WARNING: Only use db.drop_all() during development if you need to reset schema
+        # db.drop_all()  # COMMENTED OUT - Enable ONLY to update schema during development
         db.create_all()
 
         # Initialize positions if they don't exist
@@ -127,7 +128,13 @@ def initialize_database():
 
         db.session.commit()
 
-        # Add sample PTO requests for testing admin approval interface
+        # Add sample PTO requests for testing admin approval interface (only if database is empty)
+        # This prevents duplicate sample data from being added on every restart
+        existing_requests_count = PTORequest.query.count()
+        if existing_requests_count > 0:
+            print(f"Database already has {existing_requests_count} PTO requests, skipping sample data creation")
+            return
+
         from datetime import datetime, date, timedelta
 
         sample_pto_requests = [

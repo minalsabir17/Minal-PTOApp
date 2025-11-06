@@ -34,6 +34,7 @@
                     <div class="col-md-6">
                         <h6>Contact Information</h6>
                         <p><strong>Email:</strong> {{ employee.email }}</p>
+                        <p><strong>Phone:</strong> {{ employee.phone or 'Not provided' }}</p>
 
                         <h6 class="mt-3">Position Details</h6>
                         <p><strong>Team:</strong>
@@ -47,6 +48,14 @@
                         <h6>PTO Information</h6>
                         <p><strong>PTO Balance:</strong> {{ employee.pto_balance_hours }} hours ({{ "%.1f"|format(employee.pto_balance_days) }} days)</p>
                         <p><strong>Sick Time Balance:</strong> {{ employee.sick_balance_hours }} hours ({{ "%.1f"|format(employee.sick_balance_days) }} days)</p>
+                        {% if employee.pto_refresh_date %}
+                        <p><strong>PTO Refresh Date:</strong> {{ employee.pto_refresh_date.strftime('%B %d, %Y') }}</p>
+                        {% if stats.days_until_refresh is not none %}
+                        <p><strong>Days Until Refresh:</strong> {{ stats.days_until_refresh }} days</p>
+                        {% endif %}
+                        {% else %}
+                        <p><strong>PTO Refresh Date:</strong> Not set</p>
+                        {% endif %}
                     </div>
                 </div>
 
